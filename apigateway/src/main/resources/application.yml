@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: ApiGateway project for Cathay Life Vietnam
+#  cloud:
+#    gateway:
+#      routes:
+#        - id: identify
+#          uri: http://localhost:8081
+#          predicates:
+#            - Path=/api/v1/identify/**
+#          filters:
+#            - StripPrefix=3
+#            - Authentication
+#      globalcors:
+#        cors-configurations:
+#          '[/**]':
+#            allowedOrigins: "*"
+#            allowedMethods: GET, POST, PUT, DELETE, OPTIONS
+#            allowedHeaders: "*"
+#            allowCredentials: true
+  config:
+    import: optional:file:./secret.properties
+
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    reactor.netty.http.client: DEBUG
+
+
+server:
+  port: 8080
+
+access_token:
+  secret: ${access_token.secret}
+  expire: ${access_token.expire}
+refresh_token:
+  secret: ${refresh_token.secret}
+  expire: ${refresh_token.expire}
+
+internal:
+  api:
+    key: ${internal.api.key}
