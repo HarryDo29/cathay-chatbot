@@ -1,7 +1,8 @@
 package com.cathay.apigateway.filter;
-
 import com.cathay.apigateway.config.RouteValidator;
 import com.cathay.apigateway.util.JwtUtil;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import lombok.NonNull;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,27 +35,30 @@ public class AuthenticationGatewayFilterFactory extends
     @Override
     public @NonNull GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
-            System.out.println(exchange.getRequest().getURI());
             if (routeValidator.isSecured.test((ServerHttpRequest) exchange.getRequest())){
-                System.out.println("authen api");
-                try{
+                try {
                     List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
-                    if (authHeader == null || authHeader.isEmpty()){
-                        throw new RuntimeException("Missing Header Authorization!!!");
+                    if (authHeader == null || authHeader.isEmpty()) {
+                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                        return exchange.getResponse().setComplete();
                     }
-                    System.out.println("Access_token: " + authHeader.getFirst());
+
+                    // validate authorization (`Bearer ...` ?) ()
+                    if (!authHeader.getFirst().startsWith("Bearer ")) {
+                        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                        return exchange.getResponse().setComplete();
+                    }
+
                     // Extract and verify JWT token
                     val claim = jwtUtil.extractToken(authHeader.getFirst().substring(7));
-
                     // check expiration
                     val expiration = claim.getExpiration();
-                    if (expiration.before(new Date())){
+                    if (expiration.before(new Date())) {
                         throw new RuntimeException("Access Token is expired!!");
                     }
 
                     // take account in4 from token
                     String account_id = claim.getSubject();
-                    System.out.println("Account_id: " + account_id);
                     String email = jwtUtil.extractClaim(
                             claim, claims -> claims.get("email", String.class));
                     String role = jwtUtil.extractClaim(
@@ -69,13 +73,16 @@ public class AuthenticationGatewayFilterFactory extends
                             .header("X-Internal-API-Key", internalApiKey)  // Thêm internal API key
                             .build();
                     return chain.filter(exchange.mutate().request(req).build());
-                } catch (Exception e){
+                } catch (ExpiredJwtException e){
+                    //response as jwt expired
+                    exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                    return exchange.getResponse().setComplete();
+                } catch (JwtException e){
                     System.out.println("Invalid token: " + e.getMessage());
                     exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                     return exchange.getResponse().setComplete();
                 }
             } else {
-                System.out.println("public api");
                 ServerHttpRequest req = exchange.getRequest()
                         .mutate()
                         .header("X-Internal-API-Key", internalApiKey)  // ← Thêm key cho public endpoints
