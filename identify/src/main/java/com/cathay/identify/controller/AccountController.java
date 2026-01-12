@@ -7,20 +7,27 @@ import com.cathay.identify.dto.response.ApiResponse;
 import com.cathay.identify.entity.AccountEntity;
 import com.cathay.identify.exception.AppException;
 import com.cathay.identify.exception.ErrorCode;
+import com.cathay.identify.repository.AccountRepository;
 import com.cathay.identify.service.AccountServiceImpl;
 import com.cathay.identify.security.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/account")
 @RequiredArgsConstructor
 public class AccountController {
     private final AccountServiceImpl accSer;
+    private final AccountRepository accRepo;
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
@@ -30,6 +37,7 @@ public class AccountController {
                 .build();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ApiResponse<List<AccountEntity>> getAccounts (){
         return ApiResponse.<List<AccountEntity>>builder()
@@ -37,9 +45,11 @@ public class AccountController {
                 .build();
     }
 
-    @GetMapping("/{account_id}")
-    public ApiResponse<AccountEntity> getAccountById(@PathVariable String account_id){
-        val account = accSer.getAccountById(account_id);
+    @GetMapping("/me")
+    public ApiResponse<AccountEntity> getAccountById(){
+        var context = SecurityContextHolder.getContext();
+        Authentication authentication = context.getAuthentication();
+        val account = accRepo.findAccountByEmail(authentication.getPrincipal().toString());
         if (account.isPresent())
             return ApiResponse.<AccountEntity>builder()
                     .result(account.get())
@@ -57,6 +67,7 @@ public class AccountController {
         else throw new AppException(ErrorCode.USER_NOT_FOUND);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{account_id}")
     public ApiResponse<AccountEntity> updateAccount(@PathVariable String account_id, @RequestBody AccountUpdateRequest updateDto){
         return ApiResponse.<AccountEntity>builder()
@@ -65,24 +76,13 @@ public class AccountController {
     }
 
     @PostMapping("/change-password")
-    public ApiResponse<AccountEntity> changePassword(@RequestBody String account_id, @RequestBody ChangePasswordRequest changePassDto){
+    public ApiResponse<AccountEntity> changePassword(@RequestBody ChangePasswordRequest changePassDto){
+        var context = SecurityContextHolder.getContext();
+        Authentication authentication = context.getAuthentication();
+        AccountEntity account = accRepo.findAccountByEmail(authentication.getPrincipal().toString())
+                .orElseThrow(() -> new UsernameNotFoundException("Account not exist"));
         return ApiResponse.<AccountEntity>builder()
-                .result(accSer.changePassword(account_id, changePassDto))
+                .result(accSer.changePassword(account.getId(), changePassDto))
                 .build();
     }
-
-    /**
-     * Example endpoint: Chỉ admin mới access được
-     */
-    @GetMapping("/admin-only")
-    public ApiResponse<String> adminOnlyEndpoint(){
-        if (!SecurityUtil.hasRole("ADMIN")) {
-            throw new AppException(ErrorCode.UNAUTHORIZED);
-        }
-
-        return ApiResponse.<String>builder()
-                .result("Welcome Admin! You have access to this endpoint.")
-                .build();
-    }
-
 }

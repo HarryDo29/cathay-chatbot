@@ -42,20 +42,19 @@ public class AuthController {
 
         CustomAccountDetails accDetails = (CustomAccountDetails) authentication.getPrincipal();
         RefreshTokenResponse tokens = rfSer.createRefreshToken(accDetails.getAccountId());
-        // set access token into cookie in response
         CookieOption acOption = CookieOption.builder()
-                .httpOnly(false)
-                .maxAge(15 * 60)
-                .secure(false)
-                .path("/")
+                .httpOnly(false)      // Để false nếu Frontend cần đọc bằng JS
+                .maxAge(15 * 60)      // 15 phút * 60 giây = 900 giây
+                .secure(false)        // Đổi thành TRUE nếu chạy https (Production)
+                .path("/")            // Access token cần dùng cho toàn bộ app
                 .build();
-        cookieUtil.addTo(response, "access_token", tokens.getRefresh_token(), acOption);
-        // set refresh_token into cookie in response
+        cookieUtil.addTo(response, "access_token", tokens.getAccess_token(), acOption);
+
         CookieOption rfOption = CookieOption.builder()
-                .httpOnly(true)
-                .maxAge(15 * 60)
-                .secure(false)
-                .path("/")
+                .httpOnly(true)       // BẮT BUỘC TRUE: Chống hacker lấy trộm qua XSS
+                .maxAge(30 * 24 * 60 * 60) // 30 ngày * 24 giờ * 60 phút * 60 giây
+                .secure(false)        // Đổi thành TRUE nếu chạy https (Production)
+                .path("/")            // Tối ưu: Nên đổi thành "/api/v1/auth/refresh" nếu có thể
                 .build();
         cookieUtil.addTo(response, "refresh_token", tokens.getRefresh_token(), rfOption);
 

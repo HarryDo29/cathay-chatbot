@@ -11,10 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CookieOption {
     private int maxAge;
-
+    @Builder.Default
     private boolean httpOnly = false;
-
+    @Builder.Default
     private boolean secure = false;
-
+    @Builder.Default
     private String path = "/";
 }
