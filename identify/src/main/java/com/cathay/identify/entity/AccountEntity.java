@@ -59,6 +59,6 @@ public class AccountEntity {
     @UpdateTimestamp
     private Timestamp updatedAt;
 
-    @OneToMany(mappedBy = "id")
+    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RefreshTokenEntity> rfTokens;
 }
