@@ -4,7 +4,7 @@ spring:
   config:
     import: optional:file:./secret.properties
   datasource:
-    url: jdbc:postgresql://${host:localhost}:${postgres.port:5432}/${postgres.username}
+    url: jdbc:postgresql://${host:localhost}:${postgres.port:5432}/${postgres.database}
     username: ${postgres.username}
     password: ${postgres.password}
     driver-class-name: org.postgresql.Driver
