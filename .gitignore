@@ -4,6 +4,8 @@ apigateway/secret.properties
 identify/secret.properties
 chatbot/secret.properties
 
+.DS_Store
+
 # Gradle
 .gradle/
 build/
