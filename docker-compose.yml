@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  cathay-identify-postgres: # container name
+    image: postgres:16 # image name
+    container_name: cathay-identify-postgres # container name
+    ports:
+      - '5432:5432' # port mapping from host to container (host:container)
+    environment:
+      POSTGRES_DB: cathay_identify_postgres # database name
+      POSTGRES_USER: identify_service # username
+      POSTGRES_PASSWORD: generated_password_for_fun # password
+    volumes:
+      - identify_pg_data:/var/lib/postgresql/data # volume mapping from host to container (host:container)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U identify_service -d cathay_identify_postgres"] # healthcheck command
+      #                                  username            database-name
+      interval: 5s # interval time to check healthcheck
+      timeout: 5s # timeout time to check healthcheck
+      retries: 5 # retries time to check healthcheck
+
+  cathay-chatbot-pgvector: # container name
+    image: pgvector/pgvector:pg16 # image name
+    container_name: cathay-chatbot-pgvector # container name
+    ports:
+      - '5433:5432' # port mapping from host to container (host:container)
+    environment:
+      POSTGRES_DB: cathay_chatbot_pgvector # database name
+      POSTGRES_USER: chatbot_service # username
+      POSTGRES_PASSWORD: generated_password_for_fun # password
+    volumes:
+      - chatbot_pgvector_data:/var/lib/postgresql/data # volume mapping from host to container (host:container)
+      - ./pgvector-init:/docker-entrypoint-initdb.d # volume mapping from host to container (host:container)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot_service -d cathay_chatbot_pgvector"] # healthcheck command
+      #                                  username            database-name
+      interval: 5s # interval time to check healthcheck
+      timeout: 5s # timeout time to check healthcheck   
+      retries: 5 # retries time to check healthcheck
+
+  cathay-ollama:
+    
+volumes:
+  identify_pg_data:
+  chatbot_pgvector_data:  
