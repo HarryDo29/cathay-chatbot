@@ -1,34 +1,65 @@
 spring:
   application:
     name: ApiGateway project for Cathay Life Vietnam
-#  cloud:
-#    gateway:
-#      routes:
-#        - id: identify
-#          uri: http://localhost:8081
-#          predicates:
-#            - Path=/api/v1/identify/**
-#          filters:
-#            - StripPrefix=3
-#            - Authentication
-#      globalcors:
-#        cors-configurations:
-#          '[/**]':
-#            allowedOrigins: "*"
-#            allowedMethods: GET, POST, PUT, DELETE, OPTIONS
-#            allowedHeaders: "*"
-#            allowCredentials: true
+#  r2dbc:
+#    url: r2dbc:postgresql://${postgres_host}:${postgres_port}/${postgres_db}
+#    username: ${postgres_user}
+#    password: ${postgres_password}
+#  sql:
+#    init:
+#      mode: always
+#      schema-locations: classpath:schema.sql
+#  data:
+#    redis:
+#      host: ${redis_host}
+#      port: ${redis_port}
+#      password: ${redis_password}
+#      repositories:
+#        enabled: false
   config:
     import: optional:file:./secret.properties
 
-logging:
-  level:
-    org.springframework.cloud.gateway: TRACE
-    reactor.netty.http.client: DEBUG
-
-
 server:
   port: 8080
+
+app:
+  routes:
+    services:
+        - id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
+          name: identity-service
+          url: http://localhost:8081
+          path: /api/v1/identify/**
+          enabled: true
+
+        - id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          name: payment-service
+          url: http://localhost:8082
+          path: /api/v1/payment/**
+          enabled: true
+
+  gateway:
+    endpoints:
+        - id: 6851f442-4b73-46f8-9487-845f2791f6a6
+          method: POST
+          path: /auth/login
+          service_id: 1
+          enabled: true
+          isPublic: true
+
+        - id: 291d53b9-175f-4dc4-821c-a05bdd780c41
+          method: POST
+          path: /auth/register
+          service_id: 1
+          enabled: true
+          isPublic: true
+
+        - id: 608a9815-42c7-4c33-9b4a-bf4c52aeaa15
+          method: GET
+          path: /account
+          service_id: 1
+          enabled: true
+          isPublic: false
+
 
 access_token:
   secret: ${access_token.secret}

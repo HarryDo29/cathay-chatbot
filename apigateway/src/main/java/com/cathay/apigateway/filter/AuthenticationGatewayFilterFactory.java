@@ -1,5 +1,5 @@
 package com.cathay.apigateway.filter;
-import com.cathay.apigateway.config.RouteValidator;
+import com.cathay.apigateway.service.EndpointRegisterService;
 import com.cathay.apigateway.util.JwtUtil;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -20,12 +20,12 @@ import java.util.List;
 public class AuthenticationGatewayFilterFactory extends
         AbstractGatewayFilterFactory<AuthenticationGatewayFilterFactory.Config> {
 
-    private final RouteValidator routeValidator;
+    private final EndpointRegisterService endpointRegisterService;
     private final JwtUtil jwtUtil;
 
-    public AuthenticationGatewayFilterFactory(RouteValidator routeValidator, JwtUtil jwtUtil) {
+    public AuthenticationGatewayFilterFactory(EndpointRegisterService endpointRegisterService, JwtUtil jwtUtil) {
         super(Config.class); // <--- DÒNG QUAN TRỌNG NHẤT: Báo cho lớp cha biết Config class
-        this.routeValidator = routeValidator;
+        this.endpointRegisterService = endpointRegisterService;
         this.jwtUtil = jwtUtil;
     }
 
@@ -35,7 +35,8 @@ public class AuthenticationGatewayFilterFactory extends
     @Override
     public @NonNull GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
-            if (routeValidator.isSecured.test((ServerHttpRequest) exchange.getRequest())){
+            val path = exchange.getRequest().getURI().getPath();
+            if (!endpointRegisterService.isPublic(path)){
                 try {
                     List<String> authHeader = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
                     if (authHeader == null || authHeader.isEmpty()) {
@@ -48,7 +49,6 @@ public class AuthenticationGatewayFilterFactory extends
                         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                         return exchange.getResponse().setComplete();
                     }
-
                     // Extract and verify JWT token
                     val claim = jwtUtil.extractToken(authHeader.getFirst().substring(7));
                     // check expiration

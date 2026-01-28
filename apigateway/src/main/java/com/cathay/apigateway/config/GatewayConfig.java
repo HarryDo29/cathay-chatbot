@@ -1,39 +1,49 @@
 package com.cathay.apigateway.config;
 
 import com.cathay.apigateway.filter.AuthenticationGatewayFilterFactory;
-import org.springframework.cloud.gateway.route.RouteLocator;
-import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
+import com.cathay.apigateway.service.RouteRegistryService;
+import org.springframework.cloud.gateway.filter.FilterDefinition;
+import org.springframework.cloud.gateway.handler.predicate.PredicateDefinition;
+import org.springframework.cloud.gateway.route.RouteDefinition;
+import org.springframework.cloud.gateway.route.RouteDefinitionLocator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import reactor.core.publisher.Flux;
+
+import java.util.List;
 
 @Configuration
 public class GatewayConfig {
     public final AuthenticationGatewayFilterFactory authenticationFilter;
+    public final RouteRegistryService routeService;
 
-    public GatewayConfig(AuthenticationGatewayFilterFactory authenticationFilter){
+    public GatewayConfig(AuthenticationGatewayFilterFactory authenticationFilter,
+                         RouteRegistryService routeService) {
         this.authenticationFilter = authenticationFilter;
+        this.routeService = routeService;
     }
 
     @Bean
-    public RouteLocator customLocator(RouteLocatorBuilder builder){
-        return builder.routes()
-                // identify service
-                .route("identify", r -> r
-                        // 1. Predicate: Path=/api/v1/identify/**
-                        .path("/api/v1/identify/**")
-
-                        .filters(f -> f
-                                // 2. Filter: StripPrefix=3
-                                // Cắt bỏ 3 phần: /api, /v1, /identify
-                                // Ví dụ: /api/v1/identify/auth/login -> /auth/login
-                                .stripPrefix(3)
-
-                                // 3. Filter: Authentication
-                                // Lưu ý: Filter này sẽ nhận được đường dẫn ĐÃ BỊ CẮT (/auth/login)
-                                .filter(authenticationFilter.apply(new AuthenticationGatewayFilterFactory.Config()))
-                        )
-                        // 4. URI: http://localhost:8081
-                        .uri("http://localhost:8081"))
-                .build();
+    public RouteDefinitionLocator customLocator(){
+       return() -> Flux.fromIterable(routeService.getServiceCacheMap())
+               .map(serviceEntity -> {
+                   // Create RouteDefinition for each serviceEntity
+                   RouteDefinition routeDefinition = new RouteDefinition();
+                   routeDefinition.setId(serviceEntity.getName());
+                   routeDefinition.setUri(java.net.URI.create(serviceEntity.getUrl())); // Target URL http://host:port
+                   // Predicates for matching paths
+                   PredicateDefinition predicate = new PredicateDefinition();
+                   predicate.setName("Path"); // Match paths like /api/v1/{service}/**
+                   predicate.addArg("pattern", serviceEntity.getPath());
+                   routeDefinition.setPredicates(List.of(predicate));
+                   // Filters for authentication and stripping prefix
+                   FilterDefinition stripPrefixFilter = new FilterDefinition();
+                   stripPrefixFilter.setName("StripPrefix"); // Remove first 3 segments: /api/v1/{service}/
+                   stripPrefixFilter.addArg("parts", "3");
+                   FilterDefinition authFilter = new FilterDefinition();
+                   authFilter.setName("Authentication"); // Custom authentication filter
+                   routeDefinition.setFilters(List.of(stripPrefixFilter, authFilter));
+                   return routeDefinition;
+               });
     }
 }
