@@ -4,24 +4,19 @@ import lombok.Data;
 
 import java.util.UUID;
 
-//@Table("endpoints")
+//@Table("allowed_headers")
 @Data
-public class EndpointsEntity {
+public class MethodRuleEntity {
 //    @Id
     private UUID id;
 
-    private String path;
-
     private String method;
 
-//    @Column("service_id")
-    private String serviceId;
+    private boolean require_body;
 
-//    @Column("is_enabled")
-    private boolean enabled;
+    private boolean require_content_type;
 
-//    @Column("is_public")
-    private boolean isPublic;
+    private long max_body_size;
 
 //    @CreatedDate
 //    private LocalDateTime created_at;

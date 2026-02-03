@@ -1,5 +1,6 @@
 package com.cathay.apigateway.config;
 
+import com.cathay.apigateway.entity.ServiceEntity;
 import com.cathay.apigateway.filter.AuthenticationGatewayFilterFactory;
 import com.cathay.apigateway.service.RouteRegistryService;
 import org.springframework.cloud.gateway.filter.FilterDefinition;
@@ -10,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import reactor.core.publisher.Flux;
 
+import java.util.Collection;
 import java.util.List;
 
 @Configuration
@@ -25,7 +27,15 @@ public class GatewayConfig {
 
     @Bean
     public RouteDefinitionLocator customLocator(){
-       return() -> Flux.fromIterable(routeService.getServiceCacheMap())
+       // ========================================
+       // DYNAMIC CODE - Load from config
+       // ========================================
+       return() -> {
+           Collection<ServiceEntity> services = routeService.getServiceCacheMap();
+           System.out.println("🔍 RouteDefinitionLocator called. Services in cache: " + services.size());
+           
+           return Flux.fromIterable(services)
+               .doOnNext(service -> System.out.println("🛣️  Creating route for: " + service.getName() + " | Path: " + service.getPath() + " | URL: " + service.getUrl()))
                .map(serviceEntity -> {
                    // Create RouteDefinition for each serviceEntity
                    RouteDefinition routeDefinition = new RouteDefinition();
@@ -42,8 +52,9 @@ public class GatewayConfig {
                    stripPrefixFilter.addArg("parts", "3");
                    FilterDefinition authFilter = new FilterDefinition();
                    authFilter.setName("Authentication"); // Custom authentication filter
-                   routeDefinition.setFilters(List.of(stripPrefixFilter, authFilter));
+                   routeDefinition.setFilters(List.of(authFilter, stripPrefixFilter));
                    return routeDefinition;
                });
+       };
     }
 }

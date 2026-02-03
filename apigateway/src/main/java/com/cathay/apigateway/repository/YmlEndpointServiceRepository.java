@@ -2,7 +2,6 @@ package com.cathay.apigateway.repository;
 
 import com.cathay.apigateway.data.config.EndpointConfig;
 import com.cathay.apigateway.entity.EndpointsEntity;
-import com.cathay.apigateway.enums.EndpointMethod;
 import com.cathay.apigateway.interfaces.IEndpointServiceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -23,7 +22,7 @@ public class YmlEndpointServiceRepository implements IEndpointServiceRepository 
                     EndpointsEntity entity = new EndpointsEntity();
                     entity.setId(endpoint.getId());
                     entity.setPath(endpoint.getPath());
-                    entity.setMethod(EndpointMethod.from(endpoint.getMethod()));
+                    entity.setMethod(endpoint.getMethod());
                     entity.setServiceId(endpoint.getServiceId());
                     entity.setEnabled(Boolean.parseBoolean(endpoint.getEnabled()));
                     entity.setPublic(Boolean.parseBoolean(endpoint.getIsPublic()));

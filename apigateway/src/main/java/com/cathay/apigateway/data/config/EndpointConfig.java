@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Configuration
@@ -14,7 +15,7 @@ public class EndpointConfig {
 
     @Data
     public static class Endpoint {
-        private String id;
+        private UUID id;
         private String path;
         private String method;
         private String serviceId;

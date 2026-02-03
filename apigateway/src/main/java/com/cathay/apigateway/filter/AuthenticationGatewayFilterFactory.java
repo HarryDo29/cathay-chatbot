@@ -42,8 +42,8 @@ public class AuthenticationGatewayFilterFactory extends
     public @NonNull GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             val path = exchange.getRequest().getURI().getPath();
-
-            if (endpointRegisterService.isPublic(path)){
+            System.out.println("🔐 Authenticating request for path: " + path);
+            if (endpointRegisterService.isPublic(path) != null) {
                 ServerHttpRequest req = exchange.getRequest()
                         .mutate()
                         .header("X-Internal-API-Key", internalApiKey)  // ← Thêm key cho public endpoints
