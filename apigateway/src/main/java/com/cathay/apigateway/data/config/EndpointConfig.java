@@ -19,7 +19,8 @@ public class EndpointConfig {
         private String path;
         private String method;
         private String serviceId;
-        private String enabled;
         private String isPublic;
+        private String enabled;
     }
+
 }

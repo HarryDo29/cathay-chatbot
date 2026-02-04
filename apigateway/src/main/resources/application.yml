@@ -54,225 +54,170 @@ app:
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: POST
           path: /api/v1/identify-service/auth/login
-          is_public: true
+          isPublic: true
           enabled: true
 
         # Register - Public endpoint
         - id: 291d53b9-175f-4dc4-821c-a05bdd780c41
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: POST
-          path: /auth/register
-          is_public: true
+          path: /api/v1/identify-service/auth/register
+          isPublic: true
           enabled: true
 
         # Logout - Protected endpoint
         - id: 7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: POST
-          path: /auth/logout
-          is_public: false
+          path: /api/v1/identify-service/auth/logout
+          isPublic: false
           enabled: true
 
         # Refresh Token - Public endpoint
         - id: 8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: POST
-          path: /auth/refresh
-          is_public: true
-          enabled: true
-
-        # Verify Token - Public endpoint
-        - id: 9c0d1e2f-3a4b-5c6d-7e8f-9a0b1c2d3e4f
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: POST
-          path: /auth/verify
-          is_public: true
+          path: /api/v1/identify-service/auth/refresh
+          isPublic: false
           enabled: true
 
         # Forgot Password - Public endpoint
         - id: 0d1e2f3a-4b5c-6d7e-8f9a-0b1c2d3e4f5a
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: POST
-          path: /auth/forgot-password
-          is_public: true
-          enabled: true
-
-        # Reset Password - Public endpoint (requires reset token)
-        - id: 1e2f3a4b-5c6d-7e8f-9a0b-1c2d3e4f5a6b
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: POST
-          path: /auth/reset-password
-          is_public: true
+          path: /api/v1/identify-service/auth/forgot-password
+          isPublic: true
           enabled: true
 
         # Change Password - Protected endpoint
         - id: 2f3a4b5c-6d7e-8f9a-0b1c-2d3e4f5a6b7c
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: PUT
-          path: /auth/change-password
-          is_public: false
+          path: /api/v1/identify-service/auth/change-password
+          isPublic: false
           enabled: true
 
         # Send Verification Email - Protected endpoint
         - id: 3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: POST
-          path: /auth/send-verification
-          is_public: false
-          enabled: true
+          path: /api/v1/identify-service/auth/send-verification
+          isPublic: false
+          enabled: false
 
-        # Verify Email - Public endpoint
+        # Verify Email - Public endpoint // gắn relation vs param: token
         - id: 4b5c6d7e-8f9a-0b1c-2d3e-4f5a6b7c8d9e
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: GET
-          path: /auth/verify-email
-          is_public: true
-          enabled: true
+          path: /api/v1/identify-service/auth/verify-email/{token}
+          isPublic: true
+          enabled: false
 
         # Get Current User Account - Protected endpoint
         - id: 608a9815-42c7-4c33-9b4a-bf4c52aeaa15
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: GET
-          path: /account
-          is_public: false
+          path: /api/v1/identify-service/users/me
+          isPublic: false
           enabled: true
 
-        # Update Account - Protected endpoint
-        - id: 5c6d7e8f-9a0b-1c2d-3e4f-5a6b7c8d9e0f
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: PUT
-          path: /account
-          is_public: false
-          enabled: true
-
-        # Delete Account - Protected endpoint
+        # Admin Delete Account - Protected endpoint // gắn relation vs param userId
         - id: 6d7e8f9a-0b1c-2d3e-4f5a-6b7c8d9e0f1a
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: DELETE
-          path: /account
-          is_public: false
-          enabled: true
+          path: /api/v1/identify-service/users/{userId}
+          isPublic: false
+          enabled: false
 
-        # Get Account by ID - Protected endpoint (Admin only)
+        # Admin Get Account by ID - Protected endpoint // gắn relation vs param userId
         - id: 7e8f9a0b-1c2d-3e4f-5a6b-7c8d9e0f1a2b
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: GET
-          path: /account/{id}
-          is_public: false
+          path: /api/v1/identify-service/users/{userId}
+          isPublic: false
           enabled: true
 
-        # Get User Profile - Protected endpoint
-        - id: 8f9a0b1c-2d3e-4f5a-6b7c-8d9e0f1a2b3c
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: GET
-          path: /profile
-          is_public: false
-          enabled: true
-
-        # Update User Profile - Protected endpoint
-        - id: 9a0b1c2d-3e4f-5a6b-7c8d-9e0f1a2b3c4d
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: PUT
-          path: /profile
-          is_public: false
-          enabled: true
-
-        # Upload Profile Picture - Protected endpoint
-        - id: 0b1c2d3e-4f5a-6b7c-8d9e-0f1a2b3c4d5e
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: POST
-          path: /profile/picture
-          is_public: false
-          enabled: true
-
-        # Enable 2FA - Protected endpoint
-        - id: 1c2d3e4f-5a6b-7c8d-9e0f-1a2b3c4d5e6f
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: POST
-          path: /auth/2fa/enable
-          is_public: false
-          enabled: true
-
-        # Disable 2FA - Protected endpoint
-        - id: 2d3e4f5a-6b7c-8d9e-0f1a-2b3c4d5e6f7a
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: POST
-          path: /auth/2fa/disable
-          is_public: false
-          enabled: true
-
-        # Verify 2FA Code - Public endpoint
-        - id: 3e4f5a6b-7c8d-9e0f-1a2b-3c4d5e6f7a8b
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: POST
-          path: /auth/2fa/verify
-          is_public: true
-          enabled: true
-
-        # List All Users - Protected endpoint (Admin only)
+        # Admin List All Users - Protected endpoint
         - id: 4f5a6b7c-8d9e-0f1a-2b3c-4d5e6f7a8b9c
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: GET
-          path: /users
-          is_public: false
+          path: /api/v1/identify-service/users
+          isPublic: false
           enabled: true
 
-        # Create User - Protected endpoint (Admin only)
+        # Admin Create User - Protected endpoint
         - id: 5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d
           service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
           method: POST
-          path: /users
-          is_public: false
+          path: /api/v1/identify-service/users
+          isPublic: false
           enabled: true
 
-        # Update User - Protected endpoint (Admin only)
-        - id: 6b7c8d9e-0f1a-2b3c-4d5e-6f7a8b9c0d1e
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: PUT
-          path: /users/{id}
-          is_public: false
-          enabled: true
-
-        # Delete User - Protected endpoint (Admin only)
-        - id: 7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: DELETE
-          path: /users/{id}
-          is_public: false
-          enabled: true
-
-        # Activate/Deactivate User - Protected endpoint (Admin only)
-        - id: 8d9e0f1a-2b3c-4d5e-6f7a-8b9c0d1e2f3a
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: PATCH
-          path: /users/{id}/status
-          is_public: false
-          enabled: true
-
-        # Get User Roles - Protected endpoint
-        - id: 9e0f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: GET
-          path: /users/{id}/roles
-          is_public: false
-          enabled: true
-
-        # Assign Role to User - Protected endpoint (Admin only)
-        - id: 0f1a2b3c-4d5e-6f7a-8b9c-0d1e2f3a4b5c
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
+        # Create Payment Method - Protected endpoint
+        - id: 1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
           method: POST
-          path: /users/{id}/roles
-          is_public: false
+          path: /api/v1/payment-service/payments/methods
+          isPublic: false
           enabled: true
 
-        # Remove Role from User - Protected endpoint (Admin only)
-        - id: 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d
-          service_id: 8ba06267-5e36-4b87-ac05-fb657ae0d2bb
-          method: DELETE
-          path: /users/{id}/roles/{roleId}
-          is_public: false
+        # Create Payment - Protected endpoint
+        - id: 2c3d4e5f-6a7b-8c9d-0e1f-2a3b4c5d6e7f
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          method: POST
+          path: /api/v1/payment-service/payments
+          isPublic: false
           enabled: true
 
+        # Cancel Payment - Protected endpoint
+        - id: 3d4e5f6a-7b8c-9d0e-1f2a-3b4c5d6e7f8a
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          method: POST
+          path: /api/v1/payment-service/payments/{paymentId}/cancel
+          isPublic: false
+          enabled: true
+
+        # Get All Payments - Protected endpoint
+        - id: 4e5f6a7b-8c9d-0e1f-2a3b-4c5d6e7f8a9b
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          method: GET
+          path: /api/v1/payment-service/payments
+          isPublic: false
+          enabled: true
+
+        # Get Payment Methods - Protected endpoint
+        - id: 5f6a7b8c-9d0e-1f2a-3b4c-5d6e7f8a9b0c
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          method: GET
+          path: /api/v1/payment-service/payments/methods
+          isPublic: false
+          enabled: true
+
+        # Refund Payment - Protected endpoint
+        - id: 6a7b8c9d-0e1f-2a3b-4c5d-6e7f8a9b0c1d
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          method: POST
+          path: /api/v1/payment-service/payments/{paymentId}/refund
+          isPublic: false
+          enabled: true
+
+        # Get All Transactions - Protected endpoint
+        - id: 7b8c9d0e-1f2a-3b4c-5d6e-7f8a9b0c1d2e
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          method: GET
+          path: /api/v1/payment-service/transactions
+          isPublic: false
+          enabled: true
+
+        # Get Transaction by ID - Protected endpoint
+        - id: 8c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f
+          service_id: 1afb1335-ef97-4c31-ad8f-ce25c9384432
+          method: GET
+          path: /api/v1/payment-service/transactions/{transactionId}
+          isPublic: false
+          enabled: true
+
+        
   # ============================================
   # TABLE: roles
   # ============================================

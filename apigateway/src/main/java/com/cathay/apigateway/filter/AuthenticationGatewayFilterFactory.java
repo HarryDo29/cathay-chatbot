@@ -1,10 +1,12 @@
 package com.cathay.apigateway.filter;
 
+import com.cathay.apigateway.entity.EndpointsEntity;
 import com.cathay.apigateway.service.EndpointRegisterService;
 import com.cathay.apigateway.util.ErrorHandler;
 import com.cathay.apigateway.util.JwtUtil;
 import io.jsonwebtoken.Claims;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.List;
 
+@Slf4j
 @Component
 public class AuthenticationGatewayFilterFactory extends
         AbstractGatewayFilterFactory<AuthenticationGatewayFilterFactory.Config>
@@ -42,8 +45,10 @@ public class AuthenticationGatewayFilterFactory extends
     public @NonNull GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             val path = exchange.getRequest().getURI().getPath();
-            System.out.println("🔐 Authenticating request for path: " + path);
-            if (endpointRegisterService.isPublic(path) != null) {
+            val method = exchange.getRequest().getMethod();
+            log.info("\uD83D\uDD10 Authenticating request for path: {}", path);
+            EndpointsEntity endpoint = endpointRegisterService.getEndpoint(path, method.toString()).getEntity();
+            if (endpoint != null) {
                 ServerHttpRequest req = exchange.getRequest()
                         .mutate()
                         .header("X-Internal-API-Key", internalApiKey)  // ← Thêm key cho public endpoints

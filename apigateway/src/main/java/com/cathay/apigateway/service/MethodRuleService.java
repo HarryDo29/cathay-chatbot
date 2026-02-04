@@ -4,7 +4,6 @@ import com.cathay.apigateway.entity.MethodRuleEntity;
 import com.cathay.apigateway.interfaces.IMethodRuleRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
-import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 

@@ -1,5 +1,6 @@
 package com.cathay.apigateway.filter;
 
+import com.cathay.apigateway.core.routing.MatchResult;
 import com.cathay.apigateway.data.config.LimitPropertiesConfig;
 import com.cathay.apigateway.entity.EndpointsEntity;
 import com.cathay.apigateway.entity.HeaderRulesEntity;
@@ -49,10 +50,21 @@ public class ValidationGlobalGateway implements GlobalFilter, Ordered {
         String path = req.getURI().getPath().toString();
         log.info("Validating request: {} {}", method, path);
         // endpoint existed or not (or enabled or not)
-        EndpointsEntity endpoint = endpointRegisterService.isEnabled(path, method);
-        if (endpoint == null) {
+        MatchResult result = endpointRegisterService.getEndpoint(path, method);
+        if (result.getStatus() == MatchResult.Status.PATH_NOT_FOUND) {
+            log.warn("Endpoint not found: {} {}", method, path);
             return errorHandler.writeError(exchange,
-                    new NotFoundException("Endpoint does not exist"),
+                    new NotFoundException("Endpoint not found"),
+                    HttpStatus.NOT_FOUND);
+        } else if (result.getStatus() == MatchResult.Status.PATH_NOT_FOUND) {
+            log.warn("Method not allowed: {} {}", method, path);
+            return errorHandler.writeError(exchange,
+                    new RuntimeException("Method not allowed"),
+                    HttpStatus.METHOD_NOT_ALLOWED);
+        }
+        if (!result.getEntity().isEnabled()){
+            return errorHandler.writeError(exchange,
+                    new NotFoundException("Endpoint is not found"),
                     HttpStatus.NOT_FOUND);
         }
         // validate by method
@@ -101,7 +113,7 @@ public class ValidationGlobalGateway implements GlobalFilter, Ordered {
 
         // 3. Validate Authentication (Private Endpoint)
         HttpHeaders headers = req.getHeaders();
-        if (!endpoint.isPublic()) {
+        if ((result.getEntity().isPublic())) {
             String auth = headers.getFirst("Authorization");
             if (auth == null || auth.isBlank()) {
                 log.warn("Missing Authorization header");
@@ -171,7 +183,7 @@ public class ValidationGlobalGateway implements GlobalFilter, Ordered {
             }
         }
 
-        log.debug("Validation passed for: {} {}", method, path);
+        log.info(" Validation passed for: {} {}", method, path);
         return chain.filter(exchange);
     }
 

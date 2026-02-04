@@ -35,7 +35,9 @@ public class GatewayConfig {
            System.out.println("🔍 RouteDefinitionLocator called. Services in cache: " + services.size());
            
            return Flux.fromIterable(services)
-               .doOnNext(service -> System.out.println("🛣️  Creating route for: " + service.getName() + " | Path: " + service.getPath() + " | URL: " + service.getUrl()))
+               .doOnNext(service ->
+                       System.out.println("🛣️  Creating route for: " + service.getName()
+                               + " | Path: " + service.getPath() + " | URL: " + service.getUrl()))
                .map(serviceEntity -> {
                    // Create RouteDefinition for each serviceEntity
                    RouteDefinition routeDefinition = new RouteDefinition();
