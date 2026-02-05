@@ -6,13 +6,13 @@ import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-
-import java.util.Set;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class HeaderRuleService {
     @Getter
-    private volatile Set<HeaderRulesEntity> headers = Set.of();
+    private volatile Map<String, HeaderRulesEntity> headers = Map.of(); // Initialize with empty set
 
     private final IHeaderRuleRepository allowedHeaderRepo;
 
@@ -30,7 +30,17 @@ public class HeaderRuleService {
     public Mono<Void> loadAllowedHeaders(){
         return allowedHeaderRepo.getAllAllowedHeaders()
                 .collectList()
-                .doOnNext(allowedHeaderList -> headers = Set.copyOf(allowedHeaderList))
+                .doOnNext(allowedHeaderList ->
+                        headers = Map.copyOf(
+                                allowedHeaderList.stream().collect(
+                                        Collectors.toMap(
+                                                header -> header.getId().toString(),
+                                                header -> header,
+                                                (existing, replacement) -> existing
+                                        )
+                                )
+                        )
+                )
                 .then();
     }
 }

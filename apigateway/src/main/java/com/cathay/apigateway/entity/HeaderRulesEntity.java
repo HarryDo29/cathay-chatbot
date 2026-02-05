@@ -1,7 +1,6 @@
 package com.cathay.apigateway.entity;
 
 import lombok.Data;
-
 import java.util.UUID;
 
 //@Table("allowed_headers")
@@ -14,9 +13,9 @@ public class HeaderRulesEntity {
 
     private Integer max_length;
 
-    private String description;
+    private String pattern;
 
-    private boolean required;
+    private String description;
 
 //    @CreatedDate
 //    private LocalDateTime created_at;

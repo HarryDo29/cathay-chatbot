@@ -2,14 +2,15 @@ package com.cathay.apigateway.filter;
 
 import com.cathay.apigateway.core.routing.MatchResult;
 import com.cathay.apigateway.data.config.LimitPropertiesConfig;
+import com.cathay.apigateway.entity.EndpointHeaderRuleEntity;
 import com.cathay.apigateway.entity.EndpointsEntity;
 import com.cathay.apigateway.entity.HeaderRulesEntity;
 import com.cathay.apigateway.entity.MethodRuleEntity;
+import com.cathay.apigateway.service.EndpointHeaderRuleService;
 import com.cathay.apigateway.service.EndpointRegisterService;
 import com.cathay.apigateway.service.HeaderRuleService;
 import com.cathay.apigateway.service.MethodRuleService;
 import com.cathay.apigateway.util.ErrorHandler;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -24,167 +25,262 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.UnsupportedMediaTypeException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import jakarta.annotation.PostConstruct;
 import javax.naming.AuthenticationException;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ValidationGlobalGateway implements GlobalFilter, Ordered {
     private final LimitPropertiesConfig limitPropertiesConfig;
     private final EndpointRegisterService endpointRegisterService;
     private final MethodRuleService methodRuleService;
     private final HeaderRuleService headerRuleService;
+    private final EndpointHeaderRuleService endpointHeaderRuleService;
     private final ErrorHandler errorHandler;
 
-    // Cache for header rules (O(1) lookup instead of O(n) stream)
-    // Key: header name (lowercase), Value: HeaderRulesEntity
-    private Map<String, HeaderRulesEntity> headerRulesCache = null;
+    // Caches - initialized in @PostConstruct to avoid circular dependency
+    private Map<String, HeaderRulesEntity> headerRuleCache;
+    private Map<String, List<EndpointHeaderRuleEntity>> endpointHeaderRuleCache;
+
+    public ValidationGlobalGateway(
+            LimitPropertiesConfig limitPropertiesConfig,
+            EndpointRegisterService endpointRegisterService,
+            MethodRuleService methodRuleService,
+            HeaderRuleService headerRuleService,
+            EndpointHeaderRuleService endpointHeaderRuleService,
+            ErrorHandler errorHandler
+    ) {
+        this.limitPropertiesConfig = limitPropertiesConfig;
+        this.endpointRegisterService = endpointRegisterService;
+        this.methodRuleService = methodRuleService;
+        this.headerRuleService = headerRuleService;
+        this.endpointHeaderRuleService = endpointHeaderRuleService;
+        this.errorHandler = errorHandler;
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("Initializing validation caches...");
+        // Initialize header rule cache
+        this.headerRuleCache = headerRuleService.getHeaders();
+        log.info("Loaded {} header rules", headerRuleCache.size());
+        
+        // Initialize endpoint header rule cache
+        this.endpointHeaderRuleCache = endpointHeaderRuleService.getEndpointHeaderRule();
+        log.info("Loaded endpoint header rules for {} endpoints", endpointHeaderRuleCache.size());
+    }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest req = exchange.getRequest();
         String method = req.getMethod().toString();
-        String path = req.getURI().getPath().toString();
-        log.info("Validating request: {} {}", method, path);
-        // endpoint existed or not (or enabled or not)
+        String path = req.getURI().getPath();
+        log.debug("Validating request: {} {}", method, path);
+
+        // ============================================
+        // PHASE 1: GLOBAL VALIDATION
+        // ============================================
+        // 1.1 Endpoint existed or not (or enabled or not)
         MatchResult result = endpointRegisterService.getEndpoint(path, method);
-        if (result.getStatus() == MatchResult.Status.PATH_NOT_FOUND) {
+        if (result.getStatus() != MatchResult.Status.FOUND) {
             log.warn("Endpoint not found: {} {}", method, path);
             return errorHandler.writeError(exchange,
                     new NotFoundException("Endpoint not found"),
-                    HttpStatus.NOT_FOUND);
-        } else if (result.getStatus() == MatchResult.Status.PATH_NOT_FOUND) {
-            log.warn("Method not allowed: {} {}", method, path);
-            return errorHandler.writeError(exchange,
-                    new RuntimeException("Method not allowed"),
-                    HttpStatus.METHOD_NOT_ALLOWED);
+                    HttpStatus.NOT_FOUND
+            );
         }
-        if (!result.getEntity().isEnabled()){
+        
+        EndpointsEntity endpoint = result.getEntity();
+        if (!endpoint.isEnabled()) {
+            log.warn("Endpoint disabled: {} {}", method, path);
             return errorHandler.writeError(exchange,
-                    new NotFoundException("Endpoint is not found"),
-                    HttpStatus.NOT_FOUND);
+                    new NotFoundException("Endpoint is not available"),
+                    HttpStatus.NOT_FOUND
+            );
         }
-        // validate by method
+
+        // 1.2 Validate by HTTP method
         MethodRuleEntity methodRule = methodRuleService.getMethodRule(method);
-        // Tách logic check body ra riêng
         if (methodRule.isRequire_body()) {
-            long length = req.getHeaders().getContentLength();
-            long maxSize = methodRule.getMax_body_size();
-            // Content-Length = -1 is meaned length not existed (or chunked)
-            if (length <= 0) {
-                log.warn("Missing Content-Length header");
-                return errorHandler.writeError(exchange,
-                        new RuntimeException("Body required"),
-                        HttpStatus.BAD_REQUEST);
-            }
-            if (length > maxSize) {
-                log.warn("Payload too large: {} > {}", length, maxSize);
-                return errorHandler.writeError(exchange,
-                        new RuntimeException("Payload too large"),
-                        HttpStatus.PAYLOAD_TOO_LARGE);
-            }
-
-            // Check Content-Type (Chỉ check khi cần body)
-            if (methodRule.isRequire_content_type()) {
-                MediaType contentType = req.getHeaders().getContentType();
-                if (contentType == null ||
-                    !contentType.isCompatibleWith(MediaType.APPLICATION_JSON) &&
-                    !contentType.isCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED) &&
-                    !contentType.isCompatibleWith(MediaType.MULTIPART_FORM_DATA)) {
-                    log.warn("Unsupported Content-Type: {}", contentType);
-                    return errorHandler.writeError(exchange,
-                            new UnsupportedMediaTypeException("Unsupported Content-Type"),
-                            HttpStatus.UNSUPPORTED_MEDIA_TYPE);
-                }
-            }
+            Mono<Void> bodyValidation = validateBody(exchange, req, methodRule);
+            if (bodyValidation != null) return bodyValidation;
         }
 
-        // 2. Validate Query Params (Check độc lập, không dùng else)
+        // 1.3 Validate query params count
         MultiValueMap<String, String> params = req.getQueryParams();
         if (params.size() > limitPropertiesConfig.getMax_query_params()) {
-            log.warn("Too many query params: {}", params.size());
+            log.warn("Too many query params: {} > {}", params.size(), limitPropertiesConfig.getMax_query_params());
             return errorHandler.writeError(exchange,
-                    new RuntimeException("Too many query params"),
+                    new RuntimeException("Too many query parameters"),
                     HttpStatus.BAD_REQUEST);
         }
 
-        // 3. Validate Authentication (Private Endpoint)
+        // ============================================
+        // PHASE 2: ENDPOINT-SPECIFIC HEADER VALIDATION
+        // ============================================
         HttpHeaders headers = req.getHeaders();
-        if ((result.getEntity().isPublic())) {
-            String auth = headers.getFirst("Authorization");
-            if (auth == null || auth.isBlank()) {
-                log.warn("Missing Authorization header");
-                return errorHandler.writeError(exchange,
-                        new AuthenticationException("Missing Authorization header"),
-                        HttpStatus.UNAUTHORIZED);
-            }
-            if (!auth.startsWith("Bearer ") || auth.length() <= 7) {
-                log.warn("Invalid Bearer token format: {}", auth);
-                return errorHandler.writeError(exchange,
-                        new AuthenticationException("Invalid Bearer token format"),
-                        HttpStatus.UNAUTHORIZED);
-            }
-        }
-        // 4. Validate Headers Max Length
-        // transform header rules from set to map for O(1) lookup
-        if (headerRulesCache == null) {
-            log.info("Building header rules cache...");
-            headerRulesCache = headerRuleService.getHeaders().stream()
-                    .collect(Collectors.toMap(
-                            rule -> rule.getName().toLowerCase(),  // Key: lowercase header name
-                            rule -> rule,                           // Value: HeaderRulesEntity
-                            (existing, replacement) -> existing     // If duplicate, keep existing
-                    ));
+        String endpointId = endpoint.getId().toString();
+        List<EndpointHeaderRuleEntity> endpointHeaderRules = 
+            endpointHeaderRuleCache.getOrDefault(endpointId, Collections.emptyList());
+
+        // Early return if no header rules for this endpoint
+        if (endpointHeaderRules.isEmpty()) {
+            log.debug("No header rules for endpoint: {} {}", method, path);
+            return chain.filter(exchange);
         }
 
-        // Validate all present headers
+        // 2.1 Validate required headers
+        for (EndpointHeaderRuleEntity rule : endpointHeaderRules) {
+            if (rule.isRequired()) {
+                HeaderRulesEntity headerRule = headerRuleCache.get(rule.getHeader_rule_id().toString());
+                if (headerRule == null) {
+                    log.error("Header rule not found: {}", rule.getHeader_rule_id());
+                    continue;
+                }
+                
+                String headerValue = headers.getFirst(headerRule.getName());
+                if (headerValue == null || headerValue.isBlank()) {
+                    log.warn("Missing required header '{}' for {} {}", headerRule.getName(), method, path);
+                    return errorHandler.writeError(
+                            exchange,
+                            new AuthenticationException("Missing required header: " + headerRule.getName()),
+                            HttpStatus.UNAUTHORIZED
+                    );
+                }
+            }
+        }
+
+        // ============================================
+        // PHASE 3: DETAILED HEADER VALIDATION
+        // ============================================
+        // Build set of allowed header IDs for this endpoint for O(1) lookup
+        Map<String, HeaderRulesEntity> allowedHeaderRules = Map.of();
+        for (EndpointHeaderRuleEntity rule : endpointHeaderRules) {
+            HeaderRulesEntity headerRule = headerRuleCache.get(rule.getHeader_rule_id().toString());
+            if (headerRule != null) {
+                allowedHeaderRules.put(headerRule.getName().toLowerCase(), headerRule);
+            }
+        }
+
+        // 3.1 Validate each present header
         for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
             String headerName = entry.getKey();
             List<String> headerValues = entry.getValue();
-
-            // O(1) lookup instead of O(n) stream
-            HeaderRulesEntity headerRule = headerRulesCache.get(headerName.toLowerCase());
-
-            // If header not in rules, skip (allow unknown headers)
-            // This allows proxy headers (X-Forwarded-*, X-Real-IP, etc.)
-            if (headerRule == null) {
-                log.debug("Unknown header (allowed): {}", headerName);
+            
+            if (headerValues == null || headerValues.isEmpty()) {
                 continue;
             }
 
-            // Validate max length for all values
-            for (String headerValue : headerValues) {
-                if (headerValue.length() > headerRule.getMax_length()) {
-                    log.warn("Header {} exceeds max length: {} > {}",
-                            headerName, headerValue.length(), headerRule.getMax_length());
-                    return errorHandler.writeError(
-                            exchange,
-                            new RuntimeException(
-                                    "Header '" + headerName + "' exceeds maximum length of " +
-                                    headerRule.getMax_length() + " characters (current: " +
-                                    headerValue.length() + ")"
-                            ),
-                            HttpStatus.BAD_REQUEST
-                    );
-                }
+            // Get header rule by name (case-insensitive)
+            HeaderRulesEntity headerRule = allowedHeaderRules.get(headerName.toLowerCase());
+            
+            // Skip if header not in our rules (allow unknown headers)
+            if (headerRule == null) {
+                log.debug("Unknown header allowed: {}", headerName);
+                continue;
+            }
 
-                // Security: Check for CRLF injection
-                if (headerValue.contains("\r") || headerValue.contains("\n")) {
-                    log.warn("Header {} contains invalid characters (CRLF injection attempt)", headerName);
-                    return errorHandler.writeError(
-                            exchange,
-                            new RuntimeException("Header '" + headerName + "' contains invalid characters"),
-                            HttpStatus.BAD_REQUEST
-                    );
-                }
+            // Validate each value of this header
+            for (String headerValue : headerValues) {
+                Mono<Void> headerValidation = validateHeaderValue(
+                    exchange, headerName, headerValue, headerRule);
+                if (headerValidation != null) return headerValidation;
             }
         }
 
-        log.info(" Validation passed for: {} {}", method, path);
+        log.debug("Validation passed for: {} {}", method, path);
         return chain.filter(exchange);
+    }
+
+    private Mono<Void> validateBody(ServerWebExchange exchange, ServerHttpRequest req, MethodRuleEntity methodRule) {
+        long length = req.getHeaders().getContentLength();
+        long maxSize = methodRule.getMax_body_size();
+        
+        // Content-Length = -1 means not present or chunked encoding
+        if (length <= 0) {
+            log.warn("Missing or invalid Content-Length header");
+            return errorHandler.writeError(exchange,
+                    new RuntimeException("Body required with valid Content-Length header"),
+                    HttpStatus.BAD_REQUEST);
+        }
+        
+        if (length > maxSize) {
+            log.warn("Payload too large: {} > {}", length, maxSize);
+            return errorHandler.writeError(exchange,
+                    new RuntimeException("Payload too large"),
+                    HttpStatus.PAYLOAD_TOO_LARGE);
+        }
+
+        // Validate Content-Type if required
+        if (methodRule.isRequire_content_type()) {
+            MediaType contentType = req.getHeaders().getContentType();
+            if (contentType == null ||
+                (!contentType.isCompatibleWith(MediaType.APPLICATION_JSON) &&
+                 !contentType.isCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED) &&
+                 !contentType.isCompatibleWith(MediaType.MULTIPART_FORM_DATA))) {
+                log.warn("Unsupported Content-Type: {}", contentType);
+                return errorHandler.writeError(exchange,
+                        new UnsupportedMediaTypeException("Unsupported Content-Type"),
+                        HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+            }
+        }
+        
+        return null; // No error
+    }
+
+    private Mono<Void> validateHeaderValue(
+            ServerWebExchange exchange,
+            String headerName,
+            String headerValue,
+            HeaderRulesEntity headerRule) {
+        // 0. Check if header value exists and not empty
+        if (headerValue == null || headerValue.isEmpty()) {
+            log.debug("Header '{}' has empty value, skipping validation", headerName);
+            return null; // Empty values already checked in required validation phase
+        }
+
+        // 1. Check for CRLF injection (most critical - check first)
+        if (headerValue.contains("\r") || headerValue.contains("\n")) {
+            log.warn("CRLF injection attempt in header '{}'", headerName);
+            return errorHandler.writeError(
+                    exchange,
+                    new RuntimeException("Header '" + headerName + "' contains invalid characters"),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        // 2. Validate max length
+        if (headerValue.length() > headerRule.getMax_length()) {
+            log.warn("Header '{}' exceeds max length: {} > {}", 
+                    headerName, headerValue.length(), headerRule.getMax_length());
+            return errorHandler.writeError(
+                    exchange,
+                    new RuntimeException(String.format(
+                        "Header '%s' exceeds maximum length of %d characters (current: %d)",
+                        headerName, headerRule.getMax_length(), headerValue.length()
+                    )),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        // 3. Validate pattern (regex) if configured
+        String pattern = headerRule.getPattern();
+
+        if (headerValue.matches(pattern)) {
+            log.warn("Header '{}' failed pattern validation. Value: {}",
+                    headerName,
+                    headerValue.length() > 50 ? headerValue.substring(0, 50) + "..." : headerValue);
+            return errorHandler.writeError(
+                    exchange,
+                    new RuntimeException(String.format("Header '%s' has invalid format. Expected: %s",
+                            headerName, headerRule.getDescription()
+                    )),
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        log.debug("Header '{}' passed pattern validation", headerName);
+        return null; // No error
     }
 
     @Override

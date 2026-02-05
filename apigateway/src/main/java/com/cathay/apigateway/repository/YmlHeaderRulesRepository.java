@@ -23,6 +23,7 @@ public class YmlHeaderRulesRepository implements IHeaderRuleRepository {
                     entity.setId(allowedHeader.getId());
                     entity.setName(allowedHeader.getName());
                     entity.setMax_length(allowedHeader.getMax_length());
+                    entity.setPattern(allowedHeader.getPattern());
                     entity.setDescription(allowedHeader.getDescription());
                     return entity;
                 });
